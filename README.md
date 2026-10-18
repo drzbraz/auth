@@ -23,13 +23,49 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+REST authentication API built with [Nest](https://github.com/nestjs/nest) and MongoDB.
+Passwords are hashed with argon2id, access tokens are short-lived JWTs, and refresh
+tokens are opaque, stored only as SHA-256 hashes, and rotated on every use.
 
 ## Project setup
 
 ```bash
 $ npm install
+$ cp .env.example .env   # then fill in the values below
 ```
+
+## Configuration
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `MONGODB_URI` | yes | – | MongoDB connection string |
+| `JWT_ACCESS_SECRET` | yes | – | HS256 signing key for access tokens (use ≥ 32 random chars) |
+| `JWT_ACCESS_TTL` | no | `15m` | Access token lifetime |
+| `REFRESH_TOKEN_TTL_DAYS` | no | `7` | Refresh token lifetime in days |
+| `INITIAL_USER_USERNAME` | no | – | Account created at startup if it does not exist (3–64 chars) |
+| `INITIAL_USER_PASSWORD` | no | – | Password for that account; never overwrites an existing user |
+| `PORT` | no | `3000` | HTTP port |
+
+The app refuses to start if `MONGODB_URI` or `JWT_ACCESS_SECRET` is missing.
+
+## API
+
+All routes take and return JSON. Unknown or missing body fields return `400`.
+
+| Route | Body | Success (`200`) | Errors |
+|-------|------|-----------------|--------|
+| `POST /auth/login` | `{ username, password }` | `{ accessToken, refreshToken }` | `401 Invalid credentials` |
+| `POST /auth/refresh` | `{ refreshToken }` | `{ accessToken, refreshToken }` | `401 Invalid or expired refresh token` |
+| `POST /auth/logout` | `{ accessToken }` | `{ message: "Logged out successfully" }` | `401 Invalid or expired access token` |
+
+**Refresh tokens rotate.** Every refresh returns a new refresh token and invalidates the one
+sent. Store the new one. Presenting an already-used refresh token is treated as theft and
+revokes all of that user's sessions, so clients must not send refresh requests in parallel.
+
+**Logout** revokes all of the user's refresh tokens. The access token itself stays valid until
+it expires (15 minutes by default).
+
+Full contract: [`specs/001-persistent-jwt-auth/contracts/auth-api.md`](specs/001-persistent-jwt-auth/contracts/auth-api.md).
 
 ## Compile and run the project
 
@@ -50,7 +86,7 @@ $ npm run start:prod
 # unit tests
 $ npm run test
 
-# e2e tests
+# e2e tests (start an in-memory MongoDB; no database needed)
 $ npm run test:e2e
 
 # test coverage

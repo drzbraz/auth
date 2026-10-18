@@ -1,19 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { startMongo, startTestApp } from './setup-mongo';
 
 describe('AppController (e2e)', () => {
+  let mongo: MongoMemoryServer;
   let app: INestApplication<App>;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+  beforeAll(async () => {
+    mongo = await startMongo();
+  });
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
+  beforeEach(async () => {
+    ({ app } = await startTestApp());
   });
 
   it('/ (GET)', () => {
@@ -25,5 +25,9 @@ describe('AppController (e2e)', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  afterAll(async () => {
+    await mongo.stop();
   });
 });
